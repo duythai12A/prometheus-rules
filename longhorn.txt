@@ -1,0 +1,80 @@
+- alert: LonghornVolumeDegraded
+  expr: longhorn_volume_state{state="degraded"} == 1
+  for: 5m
+  labels:
+    severity: critical
+  annotations:
+    summary: "Longhorn Volume is Degraded"
+    description: "Volume {{ $labels.volume }} is in a degraded state."
+- alert: LonghornNodeDown
+  expr: longhorn_node_status{condition="ready"} == 0
+  for: 5m
+  labels:
+    severity: critical
+  annotations:
+    summary: "Longhorn Node is Down"
+    description: "Node {{ $labels.node }} is down."
+- alert: LonghornDiskFailed
+  expr: longhorn_disk_status{condition="ready"} == 0
+  for: 5m
+  labels:
+    severity: critical
+  annotations:
+    summary: "Longhorn Disk Failed"
+    description: "Disk {{ $labels.disk }} on node {{ $labels.node }} has failed."
+- alert: LonghornVolumeAlmostFull
+  expr: (longhorn_volume_capacity_bytes - longhorn_volume_used_bytes) / longhorn_volume_capacity_bytes < 0.1
+  for: 10m
+  labels:
+    severity: warning
+  annotations:
+    summary: "Longhorn Volume Almost Full"
+    description: "Volume {{ $labels.volume }} is almost full (less than 10% capacity remaining)."
+- alert: LonghornReplicaFailure
+  expr: longhorn_replica_state{state="failed"} == 1
+  for: 5m
+  labels:
+    severity: critical
+  annotations:
+    summary: "Longhorn Replica Failed"
+    description: "Replica {{ $labels.replica }} of volume {{ $labels.volume }} has failed."
+- alert: LonghornEngineFailure
+  expr: longhorn_engine_state{state="failed"} == 1
+  for: 5m
+  labels:
+    severity: critical
+  annotations:
+    summary: "Longhorn Engine Failed"
+    description: "Engine {{ $labels.engine }} of volume {{ $labels.volume }} has failed."
+- alert: LonghornHighLatency
+  expr: rate(longhorn_volume_read_latency_seconds_total[5m]) > 1 or rate(longhorn_volume_write_latency_seconds_total[5m]) > 1
+  for: 10m
+  labels:
+    severity: warning
+  annotations:
+    summary: "Longhorn High Latency"
+    description: "Volume {{ $labels.volume }} is experiencing high latency (read or write)."
+- alert: LonghornHighLatency
+  expr: rate(longhorn_volume_read_latency_seconds_total[5m]) > 1 or rate(longhorn_volume_write_latency_seconds_total[5m]) > 1
+  for: 10m
+  labels:
+    severity: warning
+  annotations:
+    summary: "Longhorn High Latency"
+    description: "Volume {{ $labels.volume }} is experiencing high latency (read or write)."
+- alert: LonghornVolumeLowReplicaCount
+  expr: longhorn_volume_replica_count < 3
+  for: 10m
+  labels:
+    severity: warning
+  annotations:
+    summary: "Longhorn Volume Low Replica Count"
+    description: "Volume {{ $labels.volume }} has fewer than 3 replicas."
+- alert: LonghornNodeHighResourceUsage
+  expr: (node_cpu_seconds_total{mode="system"} > 80) or (node_memory_MemFree_bytes / node_memory_MemTotal_bytes < 0.2)
+  for: 10m
+  labels:
+    severity: warning
+  annotations:
+    summary: "Longhorn Node High Resource Usage"
+    description: "Node {{ $labels.node }} is experiencing high CPU or memory usage."
