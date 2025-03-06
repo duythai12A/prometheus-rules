@@ -1,0 +1,57 @@
+class Script {
+    process_incoming_request({ request }) {
+        console.log(request.content);  // Giữ nguyên phần log để debug
+
+        // Lấy số lượng cảnh báo
+        const alertCount = request.content.alerts.length;
+        const alertName = request.content.alerts[0]?.labels?.alertname || "Unknown Alert"; // Lấy alertname, đặt giá trị mặc định nếu không có.
+        const commonAnnotations = request.content.commonAnnotations; //Annotations chung cho các cảnh báo
+        const commonLabels = request.content.commonLabels;  // Labels chung cho các cảnh báo
+        const externalURL = request.content.externalURL; // URL đến Alertmanager
+
+        return {
+            content: {
+                username: "Prometheus Alert",
+                //attachments: this.getAlerts(request.content),  // Thay bằng cách tạo attachments trực tiếp ở đây
+                attachments: [{
+                    text: `${alertCount} alerts for alertname=${alertName}\n[View In Alertmanager](${externalURL})`, // Dòng tiêu đề + link
+                    color: this.getAlertColor(request.content.status),
+                    fields: [
+                        {
+                            title: `[${alertCount}] ${request.content.status.charAt(0).toUpperCase() + request.content.status.slice(1)}`, // [Số lượng] Trạng thái
+                            value: this.formatAlerts(request.content.alerts), // Gọi hàm để format chi tiết từng alert
+                            short: false, // Hiển thị đầy đủ, không rút gọn
+                        },
+                    ],
+                }],
+                channel: request.content.alerts[0]?.labels?.rocketchat_channel,  // Lấy channel từ label, có thể undefined
+            },
+        };
+    }
+
+    formatAlerts(alerts) {
+        let output = "";
+        alerts.forEach((alert) => {
+            output += "**Labels**\n";
+            for (const key in alert.labels) {
+                output += `  ${key} = ${alert.labels[key]}\n`;
+            }
+            output += "**Annotations**\n";
+            for (const key in alert.annotations) {
+                 output += `  ${key} = ${alert.annotations[key]}\n`;
+            }
+            output += "\n"; 
+        });
+
+        return output;
+    }
+      getAlertColor(status) {
+        if (status === "resolved") {
+          return "good";
+        } else if (status === "firing") {
+          return "danger";
+        } else {
+          return "warning";
+        }
+      }
+}
