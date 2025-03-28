@@ -1,0 +1,122 @@
+import org.apache.poi.ss.usermodel.*;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import java.io.*;
+import java.nio.charset.StandardCharsets;
+
+public class ExcelToCsvConverter {
+
+    public static void main(String[] args) {
+        String excelFilePath = "path/to/your/excel.xlsx"; // Replace with your Excel file path
+        String csvFilePath = "path/to/your/output.csv";  // Replace with your desired CSV file path
+        try {
+            convertXlsxToCsv(excelFilePath, csvFilePath);
+            System.out.println("Successfully converted " + excelFilePath + " to " + csvFilePath);
+        } catch (IOException e) {
+            System.err.println("Error converting file: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+
+    public static void convertXlsxToCsv(String excelFilePath, String csvFilePath) throws IOException {
+
+        try (FileInputStream fileInputStream = new FileInputStream(excelFilePath);
+             Workbook workbook = new XSSFWorkbook(fileInputStream);
+             FileOutputStream fileOutputStream = new FileOutputStream(csvFilePath);
+             OutputStreamWriter outputStreamWriter = new OutputStreamWriter(fileOutputStream, StandardCharsets.UTF_8);
+             BufferedWriter bufferedWriter = new BufferedWriter(outputStreamWriter)) {
+
+            // Assuming you want to convert the first sheet
+            Sheet sheet = workbook.getSheetAt(0);
+
+            for (Row row : sheet) {
+                StringBuilder line = new StringBuilder();
+                boolean firstCell = true;
+
+                for (Cell cell : row) {
+                    if (!firstCell) {
+                        line.append(","); // Add delimiter
+                    } else {
+                        firstCell = false;
+                    }
+
+                    switch (cell.getCellType()) {
+                        case STRING:
+                            line.append(quoteCsvField(cell.getStringCellValue()));
+                            break;
+                        case NUMERIC:
+                            if (DateUtil.isCellDateFormatted(cell)) {
+                                // Handle date formatting as needed
+                                line.append(quoteCsvField(cell.getDateCellValue().toString())); // Basic date conversion
+                            } else {
+                                line.append(quoteCsvField(Double.toString(cell.getNumericCellValue())));
+                            }
+                            break;
+                        case BOOLEAN:
+                            line.append(cell.getBooleanCellValue());
+                            break;
+                        case FORMULA:  // Evaluates formula result. Handle carefully!
+                            try {
+                                switch(cell.getCachedFormulaResultType()) {  // Added a check for the type of cached result
+                                    case STRING:
+                                        line.append(quoteCsvField(cell.getStringCellValue()));  // getStringCellValue returns the string *result*, not the formula itself!
+                                        break;
+                                    case NUMERIC:
+                                        line.append(quoteCsvField(Double.toString(cell.getNumericCellValue())));
+                                        break;
+                                    case BOOLEAN:
+                                        line.append(cell.getBooleanCellValue());
+                                        break;
+                                    default:
+                                        line.append("");  // Or handle error, return error message, etc.
+                                }
+                            } catch (Exception e) {
+                                System.err.println("Error evaluating formula cell at " + cell.getAddress() + ": " + e.getMessage());
+                                line.append(""); // Or handle the error
+                            }
+                            break;
+                        case BLANK:
+                            // Do nothing, leave it blank
+                            break;
+                        default:
+                            // Unknown cell type
+                            System.err.println("Unknown cell type encountered at " + cell.getAddress());
+                            break;
+
+                    }
+                }
+
+                bufferedWriter.write(line.toString());
+                bufferedWriter.newLine();
+            }
+        } catch (Exception e) {
+            System.err.println("An error occurred during XLSX to CSV conversion:");
+            e.printStackTrace();
+            throw e; // Re-throw to let caller know the conversion failed
+        }
+    }
+
+
+    private static String quoteCsvField(String field) {
+        // CSV escaping/quoting rules. This implementation handles quotes and commas inside the field.
+
+        // Basic check: is quoting necessary?
+        if (field == null || field.isEmpty()) return "";
+
+        if (field.contains(",") || field.contains("\"") || field.contains("\n") || field.contains("\r")) {  // check for newline as well!
+            StringBuilder sb = new StringBuilder("\"");  //start with quote
+            for (int i = 0; i < field.length(); i++) {
+                char c = field.charAt(i);
+                if (c == '"') {
+                    sb.append("\"\"");  // escape double quotes with double quotes
+                } else {
+                    sb.append(c);
+                }
+            }
+            sb.append("\"");  //end with quote
+            return sb.toString();
+        }
+
+        return field;  //No special characters, so just return the plain field.
+    }
+}
