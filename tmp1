@@ -1,0 +1,103 @@
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: selfsigned-root
+spec:
+  selfSigned: {}
+  
+
+# operator-ca-tls-secret.yaml
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: minio-operator-ca-certificate
+  namespace: minio-operator
+spec:
+  isCA: true
+  commonName: operator
+  secretName: operator-ca-tls
+  duration: 70128h # 8y
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+  issuerRef:
+    name: selfsigned-root
+    kind: ClusterIssuer
+    group: cert-manager.io
+	
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: minio-operator-tls
+  namespace: minio-operator
+spec:
+  secretName: minio-operator-tls 
+  duration: 9125h 
+  renewBefore: 1440h
+  isCA: false
+  privateKey:
+    algorithm: RSA
+    encoding: PKCS1
+    size: 2048
+  dnsNames:
+    - operator.minio-operator.svc
+    - operator.minio-operator.svc.cluster.local 
+  issuerRef:
+    name: selfsigned-root 
+    kind: ClusterIssuer 
+    group: cert-manager.io
+
+trong env: OPERATOR
+ - set OPERATOR_STS_AUTO_TLS_ENABLED: off
+ 
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: minio-tenant-ca-certificate
+  namespace: minio-tenant
+spec:
+  isCA: true
+  commonName: minio-tenant-ca
+  secretName: minio-tenant-ca-tls
+  duration: 70128h # 8y
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+  issuerRef:
+    name: selfsigned-root
+    kind: ClusterIssuer
+    group: cert-manager.io
+	
+# tenant-1-ca-issuer.yaml
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: minio-tenant-ca-issuer
+  namespace: minio-tenant
+spec:
+  ca:
+    secretName: minio-tenant-ca-tls
+	
+# tenant-1-minio-certificate.yaml
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: tenant-certmanager-cert
+  namespace: minio-tenant
+spec:
+  dnsNames:
+    - "minio.minio-tenant"
+    - "minio.minio-tenant.svc"
+    - 'minio.minio-tenant.svc.cluster.local'
+    - '*.minio.minio-tenant.svc.cluster.local'
+    - '*.myminio-hl.minio-tenant.svc.cluster.local'
+    - '*.myminio.minio.minio-tenant.svc.cluster.local'
+  secretName: myminio-tls
+  issuerRef:
+    name: minio-tenant-ca-issuer
+	
+kubectl get secrets -n minio-tenant minio-tenant-ca-tls -o=jsonpath='{.data.ca\.crt}' | base64 -d > ca.crt
+kubectl create secret generic operator-ca-tls-minio-tenant --from-file=ca.crt -n minio-operator
+
+
+
